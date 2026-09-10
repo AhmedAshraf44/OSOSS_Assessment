@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:infinite_scroll_pagination/infinite_scroll_pagination.dart';
 
+import 'package:inventory_count_app/core/di/injector.dart';
 import 'package:inventory_count_app/core/utils/debouncer.dart';
+import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session_status.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/product_count_filter.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/product_list_entry.dart';
+import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review_cubit.dart';
 import 'package:inventory_count_app/features/inventory_count/presentation/cubit/product_list_cubit.dart';
 import 'package:inventory_count_app/features/inventory_count/presentation/cubit/product_list_state.dart';
+import 'package:inventory_count_app/features/inventory_count/presentation/screens/conflict_review_screen.dart';
 import 'package:inventory_count_app/features/inventory_count/presentation/widgets/product_paged_list_view.dart';
 import 'package:inventory_count_app/features/inventory_count/presentation/widgets/progress_header.dart';
 import 'package:inventory_count_app/features/inventory_count/presentation/widgets/search_filter_bar.dart';
@@ -97,6 +101,26 @@ class _ProductListScreenState extends State<ProductListScreen> {
     }
   }
 
+  Future<void> _onReviewConflict() async {
+    final cubit = context.read<ProductListCubit>();
+    final session = cubit.currentSession;
+    if (session == null) return;
+
+    final updated = await Navigator.of(context).push<CountSession>(
+      MaterialPageRoute<CountSession>(
+        builder: (_) => BlocProvider(
+          create: (_) => sl<ConflictReviewCubit>()..load(session),
+          child: ConflictReviewScreen(session: session),
+        ),
+      ),
+    );
+
+    if (updated != null && mounted) {
+      await cubit.applyExternallyUpdatedSession(updated);
+      _pagingController.refresh();
+    }
+  }
+
   @override
   void dispose() {
     _pagingController.dispose();
@@ -139,13 +163,7 @@ class _ProductListScreenState extends State<ProductListScreen> {
                   attemptCount: state.attemptCount,
                   lastError: state.lastError,
                   onRetry: () => context.read<ProductListCubit>().submitSession(),
-                  onReviewConflict: () => ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(
-                      const SnackBar(
-                        content: Text('Conflict review is coming in Phase 4.'),
-                      ),
-                    ),
+                  onReviewConflict: _onReviewConflict,
                 ),
                 ProgressHeader(
                   progress: state.progress,

@@ -21,6 +21,13 @@ enum CountSessionEvent {
   /// Employee (or the engine, for a transient failure) retries a failed
   /// session.
   retry,
+
+  /// Employee resolved every conflicted product and confirmed
+  /// resubmission.
+  resolve,
+
+  /// Employee canceled out of the conflict review instead of resolving it.
+  cancel,
 }
 
 /// Pure, side-effect-free rules for [CountSessionStatus] transitions —
@@ -40,7 +47,10 @@ class CountSessionStateMachine {
       CountSessionEvent.syncConflict,
       CountSessionEvent.syncFail,
     },
-    CountSessionStatus.conflict: {},
+    CountSessionStatus.conflict: {
+      CountSessionEvent.resolve,
+      CountSessionEvent.cancel,
+    },
     CountSessionStatus.synced: {},
     CountSessionStatus.failed: {CountSessionEvent.retry},
   };
@@ -64,6 +74,8 @@ class CountSessionStateMachine {
       CountSessionEvent.syncConflict => CountSessionStatus.conflict,
       CountSessionEvent.syncFail => CountSessionStatus.failed,
       CountSessionEvent.retry => CountSessionStatus.pendingSync,
+      CountSessionEvent.resolve => CountSessionStatus.pendingSync,
+      CountSessionEvent.cancel => CountSessionStatus.draft,
     };
   }
 

@@ -176,6 +176,35 @@ class SqfliteCountSessionLocalDataSource implements CountSessionLocalDataSource 
     }
   }
 
+  @override
+  Future<List<ProductConflictModel>> getConflicts(String sessionId) async {
+    try {
+      final db = await _appDatabase.database;
+      final rows = await db.query(
+        DbTables.syncConflicts,
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+      );
+      return rows.map(ProductConflictModel.fromDbRow).toList();
+    } catch (_) {
+      throw const LocalStorageException('Could not read the conflicts.');
+    }
+  }
+
+  @override
+  Future<void> clearConflicts(String sessionId) async {
+    try {
+      final db = await _appDatabase.database;
+      await db.delete(
+        DbTables.syncConflicts,
+        where: 'session_id = ?',
+        whereArgs: [sessionId],
+      );
+    } catch (_) {
+      throw const LocalStorageException('Could not clear the conflicts.');
+    }
+  }
+
   Future<CountSessionModel> _getByIdOrThrow(Database db, String sessionId) async {
     final rows = await db.query(
       DbTables.countSessions,

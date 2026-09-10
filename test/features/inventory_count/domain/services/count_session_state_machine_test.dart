@@ -65,6 +65,26 @@ void main() {
       );
     });
 
+    test('conflict -> pendingSync on resolve', () {
+      expect(
+        CountSessionStateMachine.next(
+          CountSessionStatus.conflict,
+          CountSessionEvent.resolve,
+        ),
+        CountSessionStatus.pendingSync,
+      );
+    });
+
+    test('conflict -> draft on cancel', () {
+      expect(
+        CountSessionStateMachine.next(
+          CountSessionStatus.conflict,
+          CountSessionEvent.cancel,
+        ),
+        CountSessionStatus.draft,
+      );
+    });
+
     test('throws when a synced session is asked to sync again', () {
       expect(
         () => CountSessionStateMachine.next(

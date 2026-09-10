@@ -159,6 +159,24 @@ class SqfliteProductLocalDataSource implements ProductLocalDataSource {
     }
   }
 
+  @override
+  Future<List<Map<String, Object?>>> getProductRowsByIds({
+    required int storeId,
+    required List<int> productIds,
+  }) async {
+    if (productIds.isEmpty) return const [];
+    try {
+      final db = await _appDatabase.database;
+      final placeholders = List.filled(productIds.length, '?').join(', ');
+      return db.rawQuery(
+        'SELECT * FROM ${DbTables.products} WHERE store_id = ? AND id IN ($placeholders)',
+        [storeId, ...productIds],
+      );
+    } catch (_) {
+      throw const LocalStorageException('Could not read the products.');
+    }
+  }
+
   (String, List<Object?>) _buildWhere(
     int storeId,
     String? searchQuery,

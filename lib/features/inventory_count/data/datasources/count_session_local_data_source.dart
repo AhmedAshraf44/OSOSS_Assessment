@@ -28,4 +28,8 @@ abstract interface class CountSessionLocalDataSource {
   /// Resets every session still marked [CountSessionStatus.syncing] back to
   /// [CountSessionStatus.pendingSync] — crash recovery, run once at startup.
   Future<void> recoverInterruptedSyncs();
+
+  Future<List<ProductConflictModel>> getConflicts(String sessionId);
+
+  Future<void> clearConflicts(String sessionId);
 }

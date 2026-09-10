@@ -21,14 +21,18 @@ import 'package:inventory_count_app/features/inventory_count/domain/repositories
 import 'package:inventory_count_app/features/inventory_count/domain/repositories/product_repository.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/repositories/submission_repository.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/services/sync_engine.dart';
+import 'package:inventory_count_app/features/inventory_count/domain/usecases/cancel_conflict_resolution.dart';
+import 'package:inventory_count_app/features/inventory_count/domain/usecases/get_conflict_review_items.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/get_local_product_page.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/get_or_create_active_session.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/get_session_progress.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/recover_interrupted_syncs.dart';
+import 'package:inventory_count_app/features/inventory_count/domain/usecases/resolve_conflicts.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/save_counted_quantity.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/submit_session.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/sync_pending_sessions.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/sync_products_from_server.dart';
+import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review_cubit.dart';
 import 'package:inventory_count_app/features/inventory_count/presentation/cubit/product_list_cubit.dart';
 import 'package:inventory_count_app/features/stores/data/datasources/fake_store_remote_data_source.dart';
 import 'package:inventory_count_app/features/stores/data/datasources/store_local_data_source.dart';
@@ -98,7 +102,11 @@ void _registerInventoryCountFeature() {
     () => SqfliteCountSessionLocalDataSource(sl()),
   );
   sl.registerLazySingleton<CountSessionRepository>(
-    () => CountSessionRepositoryImpl(localDataSource: sl(), idGenerator: sl()),
+    () => CountSessionRepositoryImpl(
+      localDataSource: sl(),
+      productLocalDataSource: sl(),
+      idGenerator: sl(),
+    ),
   );
 
   sl.registerLazySingleton<SessionRemoteDataSource>(
@@ -126,6 +134,11 @@ void _registerInventoryCountFeature() {
   sl.registerFactory(() => SubmitSession(sl()));
   sl.registerFactory(() => SyncPendingSessions(sl()));
   sl.registerFactory(() => RecoverInterruptedSyncs(sl()));
+  sl.registerFactory(
+    () => GetConflictReviewItems(sessionRepository: sl(), productRepository: sl()),
+  );
+  sl.registerFactory(() => ResolveConflicts(sl()));
+  sl.registerFactory(() => CancelConflictResolution(sl()));
 
   sl.registerFactory(
     () => ProductListCubit(
@@ -135,6 +148,14 @@ void _registerInventoryCountFeature() {
       saveCountedQuantity: sl(),
       getSessionProgress: sl(),
       submitSession: sl(),
+    ),
+  );
+
+  sl.registerFactory(
+    () => ConflictReviewCubit(
+      getConflictReviewItems: sl(),
+      resolveConflicts: sl(),
+      cancelConflictResolution: sl(),
     ),
   );
 }

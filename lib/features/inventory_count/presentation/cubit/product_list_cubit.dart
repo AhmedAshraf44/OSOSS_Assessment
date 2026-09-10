@@ -43,6 +43,10 @@ class ProductListCubit extends Cubit<ProductListState> {
 
   CountSession? _session;
 
+  /// The session this screen is operating on, once known — used by the
+  /// screen to navigate into conflict review.
+  CountSession? get currentSession => _session;
+
   /// Called from the screen's `PagingController.fetchPage`. Creates the
   /// store's draft session and does a best-effort catalog sync on the very
   /// first call (offline is fine — cached data is used instead); every
@@ -160,6 +164,25 @@ class ProductListCubit extends Cubit<ProductListState> {
         ),
       );
     }
+  }
+
+  /// Adopts a session that changed outside this cubit's own flow — the
+  /// conflict review screen resolves or cancels the session and hands the
+  /// fresh result back here so the banner and progress reflect it.
+  Future<void> applyExternallyUpdatedSession(CountSession session) async {
+    _session = session;
+    final current = state;
+    if (current is! ProductListReady) return;
+
+    final progress = await _loadProgress(current.storeId, session.localId);
+    emit(
+      current.copyWith(
+        sessionStatus: session.status,
+        attemptCount: session.attemptCount,
+        lastError: session.lastError,
+        progress: progress,
+      ),
+    );
   }
 
   Future<CountProgress> _loadProgress(int storeId, String sessionId) async {

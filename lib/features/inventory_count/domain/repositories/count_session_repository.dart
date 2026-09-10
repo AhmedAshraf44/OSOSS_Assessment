@@ -1,4 +1,5 @@
 import 'package:inventory_count_app/core/result/api_result.dart';
+import 'package:inventory_count_app/features/inventory_count/domain/entities/conflict_resolution.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session_status.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/product_conflict.dart';
@@ -44,4 +45,18 @@ abstract interface class CountSessionRepository {
   /// [CountSessionStatus.pendingSync] — safe because retries are
   /// idempotent — instead of leaving them stuck or marking them failed.
   Future<ApiResult<void>> recoverInterruptedSyncs();
+
+  /// The conflicts currently stored for [sessionId] (populated by
+  /// [markConflict]).
+  Future<ApiResult<List<ProductConflict>>> getConflicts(String sessionId);
+
+  /// Applies the employee's per-product [resolutions] to the session's
+  /// counted items (updating each item's counted quantity and snapshotting
+  /// the server's current version as the new expected version) and clears
+  /// the stored conflicts. Does NOT change the session's status — the
+  /// caller (SyncEngine) drives that through the state machine.
+  Future<ApiResult<void>> applyConflictResolutions(
+    String sessionId,
+    Map<int, ConflictResolution> resolutions,
+  );
 }

@@ -6,6 +6,7 @@ import 'package:inventory_count_app/features/inventory_count/data/datasources/pr
 import 'package:inventory_count_app/features/inventory_count/data/models/product_model.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_progress.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/counted_item.dart';
+import 'package:inventory_count_app/features/inventory_count/domain/entities/product.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/product_count_filter.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/product_list_page.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/repositories/product_repository.dart';
@@ -128,6 +129,20 @@ class ProductRepositoryImpl implements ProductRepository {
             ),
           )
           .toList();
+    });
+  }
+
+  @override
+  Future<ApiResult<List<Product>>> getProductsByIds({
+    required int storeId,
+    required List<int> productIds,
+  }) {
+    return guardApiCall(() async {
+      final rows = await _localDataSource.getProductRowsByIds(
+        storeId: storeId,
+        productIds: productIds,
+      );
+      return rows.map((row) => ProductModel.fromDbRow(row).toEntity()).toList();
     });
   }
 }

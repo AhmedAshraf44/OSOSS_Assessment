@@ -1,3 +1,4 @@
+import 'package:inventory_count_app/features/inventory_count/domain/entities/conflict_resolution.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session_status.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/submit_result.dart';
@@ -140,5 +141,52 @@ class SyncEngine {
   /// Crash recovery: run once at app startup, before any sync trigger.
   Future<void> recoverInterruptedSyncs() async {
     await _sessionRepository.recoverInterruptedSyncs();
+  }
+
+  /// Applies the employee's conflict [resolutions], moves the session back
+  /// to pendingSync, and immediately resubmits it. A fresh conflict is
+  /// possible here too (another sale could land during review) — that's
+  /// handled the same way as the first one, not a special case.
+  Future<CountSession> resolveConflictAndResubmit(
+    CountSession session,
+    Map<int, ConflictResolution> resolutions,
+  ) async {
+    await _sessionRepository.applyConflictResolutions(
+      session.localId,
+      resolutions,
+    );
+
+    final pendingStatus = CountSessionStateMachine.next(
+      session.status,
+      CountSessionEvent.resolve,
+    );
+    final updateResult = await _sessionRepository.updateStatus(
+      session.localId,
+      pendingStatus,
+    );
+    final pendingSession = updateResult.when(
+      onSuccess: (value) => value,
+      onFailure: (_) => session.copyWith(status: pendingStatus),
+    );
+
+    return syncSession(pendingSession);
+  }
+
+  /// Cancels out of conflict review without resolving anything — the
+  /// session returns to draft so the employee can adjust counts and
+  /// resubmit later. Nothing already counted is lost.
+  Future<CountSession> cancelConflict(CountSession session) async {
+    final draftStatus = CountSessionStateMachine.next(
+      session.status,
+      CountSessionEvent.cancel,
+    );
+    final result = await _sessionRepository.updateStatus(
+      session.localId,
+      draftStatus,
+    );
+    return result.when(
+      onSuccess: (value) => value,
+      onFailure: (_) => session.copyWith(status: draftStatus),
+    );
   }
 }

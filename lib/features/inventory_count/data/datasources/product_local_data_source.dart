@@ -42,4 +42,11 @@ abstract interface class ProductLocalDataSource {
   /// Rows from `count_items` for [sessionId] where a quantity was actually
   /// entered — the submission payload's source.
   Future<List<Map<String, Object?>>> getCountedItemRows(String sessionId);
+
+  /// Cached product rows matching [productIds] — used to show a clearly
+  /// identified product (name, SKU) alongside a conflict.
+  Future<List<Map<String, Object?>>> getProductRowsByIds({
+    required int storeId,
+    required List<int> productIds,
+  });
 }

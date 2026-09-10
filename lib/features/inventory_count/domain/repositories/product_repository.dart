@@ -1,6 +1,7 @@
 import 'package:inventory_count_app/core/result/api_result.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_progress.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/counted_item.dart';
+import 'package:inventory_count_app/features/inventory_count/domain/entities/product.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/product_count_filter.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/product_list_page.dart';
 
@@ -42,4 +43,11 @@ abstract interface class ProductRepository {
   /// Every counted item for [sessionId], ready to build a submission
   /// payload. Items with no counted quantity are excluded.
   Future<ApiResult<List<CountedItem>>> getCountedItems(String sessionId);
+
+  /// Locally cached products matching [productIds], for displaying a
+  /// clearly-identified product (name, SKU) alongside a conflict.
+  Future<ApiResult<List<Product>>> getProductsByIds({
+    required int storeId,
+    required List<int> productIds,
+  });
 }
