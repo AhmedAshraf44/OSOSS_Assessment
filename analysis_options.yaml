@@ -21,8 +21,14 @@ linter:
   # `// ignore_for_file: name_of_lint` syntax on the line or in the file
   # producing the lint.
   rules:
-    # avoid_print: false  # Uncomment to disable the `avoid_print` rule
-    # prefer_single_quotes: true  # Uncomment to enable the `prefer_single_quotes` rule
+    # Disabled deliberately: constructors consistently keep dependencies in
+    # private fields (encapsulation) while exposing descriptive *named*
+    # constructor parameters for get_it-friendly call sites — e.g.
+    # `StoreRepositoryImpl({required StoreRemoteDataSource remoteDataSource})`
+    # assigning to `_remoteDataSource`. Dart doesn't allow a named parameter
+    # to reuse a private field's leading underscore, so this lint would
+    # otherwise fire on every repository/cubit constructor in the project.
+    prefer_initializing_formals: false
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options

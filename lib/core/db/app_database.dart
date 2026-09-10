@@ -20,8 +20,11 @@ import 'package:inventory_count_app/core/error/exceptions.dart';
 /// - `count_sessions.idempotency_key` is generated when the session is
 ///   created and reused on every submit/retry of that same session, which
 ///   is what makes retries safe.
+/// - `count_sessions.status` is a single linear lifecycle column (draft ->
+///   readyToSubmit -> pendingSync -> syncing -> conflict|synced|failed),
+///   matching the assessment's one status list — there's no separate
+///   sync-status column duplicating part of that lifecycle.
 class AppDatabase {
-  // ignore: prefer_initializing_formals
   AppDatabase({Database? testDatabase}) : _testDatabase = testDatabase;
 
   static const int schemaVersion = 1;
@@ -82,7 +85,6 @@ class AppDatabase {
         store_id INTEGER NOT NULL,
         employee_id TEXT NOT NULL,
         status TEXT NOT NULL,
-        sync_status TEXT NOT NULL,
         idempotency_key TEXT NOT NULL,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
@@ -95,7 +97,7 @@ class AppDatabase {
       'CREATE INDEX idx_sessions_store ON ${DbTables.countSessions}(store_id)',
     );
     batch.execute(
-      'CREATE INDEX idx_sessions_sync_status ON ${DbTables.countSessions}(sync_status)',
+      'CREATE INDEX idx_sessions_status ON ${DbTables.countSessions}(status)',
     );
 
     batch.execute('''
