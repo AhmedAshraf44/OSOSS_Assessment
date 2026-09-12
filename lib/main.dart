@@ -14,13 +14,8 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await configureDependencies();
 
-  // Crash recovery: any session still marked "syncing" means the app died
-  // mid-request last time. Run before anything else can trigger a sync.
   await sl<RecoverInterruptedSyncs>()();
 
-  // The device's own connectivity signal is only ever a trigger to *attempt*
-  // a sync, never the source of truth for whether it will succeed — actual
-  // request failures are what the sync engine reacts to (see SyncEngine).
   sl<ConnectivityMonitor>().onStatusChange.listen((isOnline) {
     if (isOnline) sl<SyncPendingSessions>()();
   });

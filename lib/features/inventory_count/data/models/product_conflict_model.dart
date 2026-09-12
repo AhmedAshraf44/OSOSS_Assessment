@@ -36,6 +36,17 @@ class ProductConflictModel {
     }
   }
 
+  factory ProductConflictModel.fromEntity(ProductConflict conflict) {
+    return ProductConflictModel(
+      productId: conflict.productId,
+      expectedVersion: conflict.expectedVersion,
+      currentVersion: conflict.currentVersion,
+      originalSystemQuantity: conflict.originalSystemQuantity,
+      currentSystemQuantity: conflict.currentSystemQuantity,
+      countedQuantity: conflict.countedQuantity,
+    );
+  }
+
   factory ProductConflictModel.fromDbRow(Map<String, Object?> row) {
     try {
       return ProductConflictModel(

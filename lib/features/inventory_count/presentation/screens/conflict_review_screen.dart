@@ -3,8 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:inventory_count_app/core/utils/widgets/error_state_view.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session.dart';
-import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review_cubit.dart';
-import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review_state.dart';
+import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review/conflict_review_cubit.dart';
+import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review/conflict_review_state.dart';
 import 'package:inventory_count_app/features/inventory_count/presentation/widgets/conflict_review_body.dart';
 
 class ConflictReviewScreen extends StatelessWidget {

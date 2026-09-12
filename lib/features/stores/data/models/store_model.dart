@@ -18,5 +18,7 @@ class StoreModel {
     }
   }
 
+  Map<String, dynamic> toJson() => {'id': id, 'name': name};
+
   Store toEntity() => Store(id: id, name: name);
 }

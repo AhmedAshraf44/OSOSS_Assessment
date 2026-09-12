@@ -17,8 +17,22 @@ class ConnectivityMonitor {
   Stream<bool> get onStatusChange =>
       _connectivity.onConnectivityChanged.map(_hasConnection);
 
-  Future<bool> get isConnected async =>
-      _hasConnection(await _connectivity.checkConnectivity());
+  /// Never hangs and never throws: a slow, missing, or misbehaving
+  /// connectivity plugin (e.g. no platform channel bound, as in a plain
+  /// widget test) falls back to "assume connected" after a short timeout
+  /// rather than blocking every network call indefinitely. A real native
+  /// connectivity check normally resolves in milliseconds — this is a
+  /// safety net, not a realistic expected wait.
+  Future<bool> get isConnected async {
+    try {
+      final results = await _connectivity.checkConnectivity().timeout(
+        const Duration(milliseconds: 500),
+      );
+      return _hasConnection(results);
+    } catch (_) {
+      return true;
+    }
+  }
 
   bool _hasConnection(List<ConnectivityResult> results) =>
       results.any((result) => result != ConnectivityResult.none);

@@ -13,7 +13,7 @@ class StoreSelectionScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Select Store')),
+      appBar: AppBar(title: const Text('Inventory Count')),
       body: BlocBuilder<StoreCubit, StoreState>(
         builder: (context, state) {
           return switch (state) {

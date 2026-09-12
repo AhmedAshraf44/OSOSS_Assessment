@@ -34,6 +34,26 @@ class CountSessionModel {
   final int attemptCount;
   final String? lastError;
 
+  /// A brand-new count for [storeId], with its idempotency key fixed up
+  /// front so every retry of this session submits under the same key.
+  factory CountSessionModel.newDraft({
+    required String localId,
+    required int storeId,
+    required String employeeId,
+    required String idempotencyKey,
+  }) {
+    final now = DateTime.now();
+    return CountSessionModel(
+      localId: localId,
+      storeId: storeId,
+      employeeId: employeeId,
+      status: CountSessionStatus.draft,
+      createdAt: now,
+      updatedAt: now,
+      idempotencyKey: idempotencyKey,
+    );
+  }
+
   factory CountSessionModel.fromDbRow(Map<String, Object?> row) {
     try {
       return CountSessionModel(

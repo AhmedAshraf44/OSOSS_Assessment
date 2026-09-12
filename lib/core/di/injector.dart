@@ -1,58 +1,11 @@
-import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:get_it/get_it.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
-import 'package:inventory_count_app/core/db/app_database.dart';
-import 'package:inventory_count_app/core/fake_backend/fake_backend.dart';
-import 'package:inventory_count_app/core/network/connectivity_monitor.dart';
-import 'package:inventory_count_app/core/utils/id_generator.dart';
-import 'package:inventory_count_app/features/inventory_count/data/datasources/count_session_local_data_source.dart';
-import 'package:inventory_count_app/features/inventory_count/data/datasources/fake_product_remote_data_source.dart';
-import 'package:inventory_count_app/features/inventory_count/data/datasources/fake_session_remote_data_source.dart';
-import 'package:inventory_count_app/features/inventory_count/data/datasources/product_local_data_source.dart';
-import 'package:inventory_count_app/features/inventory_count/data/datasources/product_remote_data_source.dart';
-import 'package:inventory_count_app/features/inventory_count/data/datasources/session_remote_data_source.dart';
-import 'package:inventory_count_app/features/inventory_count/data/datasources/sqflite_count_session_local_data_source.dart';
-import 'package:inventory_count_app/features/inventory_count/data/datasources/sqflite_product_local_data_source.dart';
-import 'package:inventory_count_app/features/inventory_count/data/repositories/count_session_repository_impl.dart';
-import 'package:inventory_count_app/features/inventory_count/data/repositories/product_repository_impl.dart';
-import 'package:inventory_count_app/features/inventory_count/data/repositories/submission_repository_impl.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/repositories/count_session_repository.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/repositories/product_repository.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/repositories/submission_repository.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/services/sync_engine.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/cancel_conflict_resolution.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/get_conflict_review_items.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/get_local_product_page.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/get_or_create_active_session.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/get_session_progress.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/recover_interrupted_syncs.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/resolve_conflicts.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/save_counted_quantity.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/submit_session.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/sync_pending_sessions.dart';
-import 'package:inventory_count_app/features/inventory_count/domain/usecases/sync_products_from_server.dart';
-import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review_cubit.dart';
-import 'package:inventory_count_app/features/inventory_count/presentation/cubit/product_list_cubit.dart';
-import 'package:inventory_count_app/features/stores/data/datasources/fake_store_remote_data_source.dart';
-import 'package:inventory_count_app/features/stores/data/datasources/store_local_data_source.dart';
-import 'package:inventory_count_app/features/stores/data/datasources/store_remote_data_source.dart';
-import 'package:inventory_count_app/features/stores/data/repositories/store_repository_impl.dart';
-import 'package:inventory_count_app/features/stores/domain/repositories/store_repository.dart';
-import 'package:inventory_count_app/features/stores/domain/usecases/get_selected_store_id.dart';
-import 'package:inventory_count_app/features/stores/domain/usecases/get_stores.dart';
-import 'package:inventory_count_app/features/stores/domain/usecases/select_store.dart';
-import 'package:inventory_count_app/features/stores/presentation/cubit/store_cubit.dart';
+import 'package:inventory_count_app/core/di/injector_dependencies.dart';
 
 final GetIt sl = GetIt.instance;
-
-/// Registers every injectable dependency. Called once from `main()` before
-/// `runApp`. Feature modules register through this same file — Cubits, use
-/// cases, and repositories are always resolved via [sl], never instantiated
-/// manually in widgets (CLAUDE.md: single core/di/ setup file).
 Future<void> configureDependencies() async {
   sl.registerLazySingleton<Connectivity>(() => Connectivity());
-  sl.registerLazySingleton<ConnectivityMonitor>(() => ConnectivityMonitor(sl()));
+  sl.registerLazySingleton<ConnectivityMonitor>(
+    () => ConnectivityMonitor(sl()),
+  );
 
   sl.registerLazySingleton<AppDatabase>(() => AppDatabase());
   sl.registerLazySingleton<IdGenerator>(() => const IdGenerator());
@@ -60,7 +13,9 @@ Future<void> configureDependencies() async {
   final prefs = await SharedPreferences.getInstance();
   sl.registerLazySingleton<SharedPreferences>(() => prefs);
 
-  sl.registerLazySingleton<FakeBackend>(() => FakeBackend());
+  sl.registerLazySingleton<FakeBackend>(
+    () => FakeBackend(connectivityMonitor: sl()),
+  );
 
   _registerStoresFeature();
   _registerInventoryCountFeature();
@@ -82,8 +37,12 @@ void _registerStoresFeature() {
   sl.registerFactory(() => SelectStore(sl()));
 
   sl.registerFactory(
-    () =>
-        StoreCubit(getStores: sl(), getSelectedStoreId: sl(), selectStore: sl()),
+    () => StoreCubit(
+      getStores: sl(),
+      getSelectedStoreId: sl(),
+      selectStore: sl(),
+      hasUnsubmittedCount: sl(),
+    ),
   );
 }
 
@@ -119,9 +78,6 @@ void _registerInventoryCountFeature() {
     ),
   );
 
-  // Singleton: its single-flight guard and any in-flight sync state must
-  // be shared by every trigger (submit button, connectivity restore, app
-  // resume) — not re-created per screen.
   sl.registerLazySingleton<SyncEngine>(
     () => SyncEngine(sessionRepository: sl(), submissionRepository: sl()),
   );
@@ -134,8 +90,16 @@ void _registerInventoryCountFeature() {
   sl.registerFactory(() => SubmitSession(sl()));
   sl.registerFactory(() => SyncPendingSessions(sl()));
   sl.registerFactory(() => RecoverInterruptedSyncs(sl()));
+  sl.registerFactory(() => WatchSessionUpdates(sl()));
   sl.registerFactory(
-    () => GetConflictReviewItems(sessionRepository: sl(), productRepository: sl()),
+    () => GetStoreSessions(sessionRepository: sl(), productRepository: sl()),
+  );
+  sl.registerFactory(() => HasUnsubmittedCount(sl()));
+  sl.registerFactory(
+    () => GetConflictReviewItems(
+      sessionRepository: sl(),
+      productRepository: sl(),
+    ),
   );
   sl.registerFactory(() => ResolveConflicts(sl()));
   sl.registerFactory(() => CancelConflictResolution(sl()));
@@ -148,7 +112,12 @@ void _registerInventoryCountFeature() {
       saveCountedQuantity: sl(),
       getSessionProgress: sl(),
       submitSession: sl(),
+      watchSessionUpdates: sl(),
     ),
+  );
+
+  sl.registerFactory(
+    () => SessionsCubit(getStoreSessions: sl(), getOrCreateActiveSession: sl()),
   );
 
   sl.registerFactory(

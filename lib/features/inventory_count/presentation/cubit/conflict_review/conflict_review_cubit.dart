@@ -5,7 +5,7 @@ import 'package:inventory_count_app/features/inventory_count/domain/entities/cou
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/cancel_conflict_resolution.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/get_conflict_review_items.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/usecases/resolve_conflicts.dart';
-import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review_state.dart';
+import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review/conflict_review_state.dart';
 
 class ConflictReviewCubit extends Cubit<ConflictReviewState> {
   ConflictReviewCubit({

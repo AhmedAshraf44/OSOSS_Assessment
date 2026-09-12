@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_progress.dart';
+import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session_status.dart';
 
 sealed class ProductListState extends Equatable {
@@ -27,7 +28,19 @@ final class ProductListReady extends ProductListState {
     this.sessionStatus = CountSessionStatus.draft,
     this.attemptCount = 0,
     this.lastError,
+    this.actionError,
   });
+
+  /// A freshly opened session: its own status and progress, nothing
+  /// carried over from whatever was on screen before.
+  ProductListReady.forSession(CountSession session, this.progress)
+    : storeId = session.storeId,
+      sessionId = session.localId,
+      sessionStatus = session.status,
+      attemptCount = session.attemptCount,
+      lastError = session.lastError,
+      isSyncing = false,
+      actionError = null;
 
   final int storeId;
   final String sessionId;
@@ -40,7 +53,23 @@ final class ProductListReady extends ProductListState {
   /// which only reflects the catalog refresh.
   final CountSessionStatus sessionStatus;
   final int attemptCount;
+
+  /// Message from the session's most recent failed *sync* attempt —
+  /// persisted, shown by the session-status banner.
   final String? lastError;
+
+  /// Transient error from a one-off action (saving a counted quantity,
+  /// refreshing the catalog) that must NOT be confused with [lastError] or
+  /// silently dropped — surfaced once as a SnackBar by the screen. Always
+  /// reset to null by [copyWith]; set explicitly via [withActionError].
+  final String? actionError;
+
+  /// Quantities can only be edited while the session is still a draft.
+  /// Once it has been submitted (pending/syncing/synced) or is awaiting
+  /// conflict review, the counts are part of a submission and changing
+  /// them underneath it would silently diverge from what the server was
+  /// told — so a submitted or historical session opens read-only.
+  bool get isEditable => sessionStatus == CountSessionStatus.draft;
 
   ProductListReady copyWith({
     bool? isSyncing,
@@ -60,6 +89,30 @@ final class ProductListReady extends ProductListState {
     );
   }
 
+  /// Adopts [session]'s lifecycle fields, keeping everything else on
+  /// screen as it is.
+  ProductListReady withSession(CountSession session, {CountProgress? progress}) {
+    return copyWith(
+      sessionStatus: session.status,
+      attemptCount: session.attemptCount,
+      lastError: session.lastError,
+      progress: progress,
+    );
+  }
+
+  ProductListReady withActionError(String message) {
+    return ProductListReady(
+      storeId: storeId,
+      sessionId: sessionId,
+      isSyncing: isSyncing,
+      progress: progress,
+      sessionStatus: sessionStatus,
+      attemptCount: attemptCount,
+      lastError: lastError,
+      actionError: message,
+    );
+  }
+
   @override
   List<Object?> get props => [
     storeId,
@@ -69,5 +122,6 @@ final class ProductListReady extends ProductListState {
     sessionStatus,
     attemptCount,
     lastError,
+    actionError,
   ];
 }

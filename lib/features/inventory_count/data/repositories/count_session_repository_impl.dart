@@ -6,6 +6,7 @@ import 'package:inventory_count_app/features/inventory_count/data/datasources/co
 import 'package:inventory_count_app/features/inventory_count/data/datasources/product_local_data_source.dart';
 import 'package:inventory_count_app/features/inventory_count/data/models/count_session_model.dart';
 import 'package:inventory_count_app/features/inventory_count/data/models/product_conflict_model.dart';
+import 'package:inventory_count_app/features/inventory_count/data/repositories/conflict_resolution_applier.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/conflict_resolution.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session_status.dart';
@@ -13,17 +14,20 @@ import 'package:inventory_count_app/features/inventory_count/domain/entities/pro
 import 'package:inventory_count_app/features/inventory_count/domain/repositories/count_session_repository.dart';
 
 class CountSessionRepositoryImpl implements CountSessionRepository {
-  const CountSessionRepositoryImpl({
+  CountSessionRepositoryImpl({
     required CountSessionLocalDataSource localDataSource,
     required ProductLocalDataSource productLocalDataSource,
     required IdGenerator idGenerator,
   }) : _localDataSource = localDataSource,
-       _productLocalDataSource = productLocalDataSource,
-       _idGenerator = idGenerator;
+       _idGenerator = idGenerator,
+       _conflictResolutionApplier = ConflictResolutionApplier(
+         sessionLocalDataSource: localDataSource,
+         productLocalDataSource: productLocalDataSource,
+       );
 
   final CountSessionLocalDataSource _localDataSource;
-  final ProductLocalDataSource _productLocalDataSource;
   final IdGenerator _idGenerator;
+  final ConflictResolutionApplier _conflictResolutionApplier;
 
   @override
   Future<ApiResult<CountSession>> getOrCreateActiveSession(int storeId) {
@@ -31,14 +35,10 @@ class CountSessionRepositoryImpl implements CountSessionRepository {
       final existing = await _localDataSource.getActiveDraftSession(storeId);
       if (existing != null) return existing.toEntity();
 
-      final now = DateTime.now();
-      final session = CountSessionModel(
+      final session = CountSessionModel.newDraft(
         localId: _idGenerator.generate(),
         storeId: storeId,
         employeeId: MockSession.employeeId,
-        status: CountSessionStatus.draft,
-        createdAt: now,
-        updatedAt: now,
         idempotencyKey: _idGenerator.generate(),
       );
       await _localDataSource.insertSession(session);
@@ -51,18 +51,12 @@ class CountSessionRepositoryImpl implements CountSessionRepository {
     String sessionId,
     CountSessionStatus status,
   ) {
-    return guardApiCall(() async {
-      final updated = await _localDataSource.updateStatus(sessionId, status);
-      return updated.toEntity();
-    });
+    return _session(() => _localDataSource.updateStatus(sessionId, status));
   }
 
   @override
   Future<ApiResult<CountSession>> markSynced(String sessionId, int serverId) {
-    return guardApiCall(() async {
-      final updated = await _localDataSource.markSynced(sessionId, serverId);
-      return updated.toEntity();
-    });
+    return _session(() => _localDataSource.markSynced(sessionId, serverId));
   }
 
   @override
@@ -70,10 +64,15 @@ class CountSessionRepositoryImpl implements CountSessionRepository {
     String sessionId,
     String errorMessage,
   ) {
-    return guardApiCall(() async {
-      final updated = await _localDataSource.markFailed(sessionId, errorMessage);
-      return updated.toEntity();
-    });
+    return _session(() => _localDataSource.markFailed(sessionId, errorMessage));
+  }
+
+  @override
+  Future<ApiResult<CountSession>> markPendingRetry(
+    String sessionId,
+    String reason,
+  ) {
+    return _session(() => _localDataSource.markPendingRetry(sessionId, reason));
   }
 
   @override
@@ -81,42 +80,34 @@ class CountSessionRepositoryImpl implements CountSessionRepository {
     String sessionId,
     List<ProductConflict> conflicts,
   ) {
-    return guardApiCall(() async {
-      final models = conflicts
-          .map(
-            (c) => ProductConflictModel(
-              productId: c.productId,
-              expectedVersion: c.expectedVersion,
-              currentVersion: c.currentVersion,
-              originalSystemQuantity: c.originalSystemQuantity,
-              currentSystemQuantity: c.currentSystemQuantity,
-              countedQuantity: c.countedQuantity,
-            ),
-          )
-          .toList();
-      final updated = await _localDataSource.markConflict(sessionId, models);
-      return updated.toEntity();
-    });
+    return _session(
+      () => _localDataSource.markConflict(
+        sessionId,
+        conflicts.map(ProductConflictModel.fromEntity).toList(),
+      ),
+    );
   }
 
   @override
   Future<ApiResult<List<CountSession>>> getSessionsPendingSync() {
-    return guardApiCall(() async {
-      final models = await _localDataSource.getSessionsPendingSync();
-      return models.map((m) => m.toEntity()).toList();
-    });
+    return _sessions(_localDataSource.getSessionsPendingSync);
+  }
+
+  @override
+  Future<ApiResult<List<CountSession>>> getSessionsForStore(int storeId) {
+    return _sessions(() => _localDataSource.getSessionsForStore(storeId));
   }
 
   @override
   Future<ApiResult<void>> recoverInterruptedSyncs() {
-    return guardApiCall(() => _localDataSource.recoverInterruptedSyncs());
+    return guardApiCall(_localDataSource.recoverInterruptedSyncs);
   }
 
   @override
   Future<ApiResult<List<ProductConflict>>> getConflicts(String sessionId) {
     return guardApiCall(() async {
       final models = await _localDataSource.getConflicts(sessionId);
-      return models.map((m) => m.toEntity()).toList();
+      return models.map((model) => model.toEntity()).toList();
     });
   }
 
@@ -125,23 +116,22 @@ class CountSessionRepositoryImpl implements CountSessionRepository {
     String sessionId,
     Map<int, ConflictResolution> resolutions,
   ) {
-    return guardApiCall(() async {
-      final conflicts = await _localDataSource.getConflicts(sessionId);
-      for (final conflict in conflicts) {
-        final resolution =
-            resolutions[conflict.productId] ?? ConflictResolution.keepMine;
-        final resolvedQuantity = resolution == ConflictResolution.keepMine
-            ? conflict.countedQuantity
-            : conflict.currentSystemQuantity;
+    return guardApiCall(
+      () => _conflictResolutionApplier.apply(sessionId, resolutions),
+    );
+  }
 
-        await _productLocalDataSource.upsertCountedQuantity(
-          sessionId: sessionId,
-          productId: conflict.productId,
-          expectedVersion: conflict.currentVersion,
-          countedQuantity: resolvedQuantity,
-        );
-      }
-      await _localDataSource.clearConflicts(sessionId);
-    });
+  Future<ApiResult<CountSession>> _session(
+    Future<CountSessionModel> Function() write,
+  ) {
+    return guardApiCall(() async => (await write()).toEntity());
+  }
+
+  Future<ApiResult<List<CountSession>>> _sessions(
+    Future<List<CountSessionModel>> Function() read,
+  ) {
+    return guardApiCall(
+      () async => (await read()).map((model) => model.toEntity()).toList(),
+    );
   }
 }

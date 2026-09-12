@@ -44,14 +44,19 @@ class SqfliteProductLocalDataSource implements ProductLocalDataSource {
       final (where, args) = _buildWhere(storeId, searchQuery, filter);
 
       return db.rawQuery('''
-        SELECT p.*, ci.counted_quantity AS counted_quantity
+        SELECT
+          p.*,
+          ci.counted_quantity AS counted_quantity,
+          sc.product_id IS NOT NULL AS has_conflict
         FROM ${DbTables.products} p
         LEFT JOIN ${DbTables.countItems} ci
           ON ci.session_id = ? AND ci.product_id = p.id
+        LEFT JOIN ${DbTables.syncConflicts} sc
+          ON sc.session_id = ? AND sc.product_id = p.id
         WHERE $where
         ORDER BY p.name ASC
         LIMIT ? OFFSET ?
-      ''', [sessionId, ...args, limit, offset]);
+      ''', [sessionId, sessionId, ...args, limit, offset]);
     } catch (_) {
       throw const LocalStorageException('Could not read products locally.');
     }
@@ -174,6 +179,44 @@ class SqfliteProductLocalDataSource implements ProductLocalDataSource {
       );
     } catch (_) {
       throw const LocalStorageException('Could not read the products.');
+    }
+  }
+
+  @override
+  Future<int> getProductCount(int storeId) async {
+    try {
+      final db = await _appDatabase.database;
+      final rows = await db.rawQuery(
+        'SELECT COUNT(*) AS total FROM ${DbTables.products} WHERE store_id = ?',
+        [storeId],
+      );
+      return (rows.first['total'] as int?) ?? 0;
+    } catch (_) {
+      throw const LocalStorageException('Could not count the products.');
+    }
+  }
+
+  @override
+  Future<Map<String, int>> getCountedTotalsBySession(
+    List<String> sessionIds,
+  ) async {
+    if (sessionIds.isEmpty) return const {};
+    try {
+      final db = await _appDatabase.database;
+      final placeholders = List.filled(sessionIds.length, '?').join(', ');
+      final rows = await db.rawQuery('''
+        SELECT session_id, COUNT(*) AS counted
+        FROM ${DbTables.countItems}
+        WHERE counted_quantity IS NOT NULL AND session_id IN ($placeholders)
+        GROUP BY session_id
+      ''', sessionIds);
+
+      return {
+        for (final row in rows)
+          row['session_id']! as String: (row['counted'] as int?) ?? 0,
+      };
+    } catch (_) {
+      throw const LocalStorageException('Could not read session progress.');
     }
   }
 

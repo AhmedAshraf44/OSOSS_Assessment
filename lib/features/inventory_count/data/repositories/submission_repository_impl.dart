@@ -35,7 +35,9 @@ class SubmissionRepositoryImpl implements SubmissionRepository {
 
       final response = await _remoteDataSource.submitCount(
         idempotencyKey: session.idempotencyKey,
+        clientSessionId: session.localId,
         storeId: session.storeId,
+        createdAt: session.createdAt,
         items: items,
       );
       return response.toEntity();

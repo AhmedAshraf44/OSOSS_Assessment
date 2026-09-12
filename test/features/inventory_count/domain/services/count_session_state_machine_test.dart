@@ -65,6 +65,16 @@ void main() {
       );
     });
 
+    test('syncing -> pendingSync on defer (request never left the device)', () {
+      expect(
+        CountSessionStateMachine.next(
+          CountSessionStatus.syncing,
+          CountSessionEvent.defer,
+        ),
+        CountSessionStatus.pendingSync,
+      );
+    });
+
     test('conflict -> pendingSync on resolve', () {
       expect(
         CountSessionStateMachine.next(

@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review_cubit.dart';
-import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review_state.dart';
+import 'package:inventory_count_app/core/extensions/navigation_x.dart';
+import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review/conflict_review_cubit.dart';
+import 'package:inventory_count_app/features/inventory_count/presentation/cubit/conflict_review/conflict_review_state.dart';
 import 'package:inventory_count_app/features/inventory_count/presentation/widgets/conflict_card.dart';
 
 /// The loaded state's body: one [ConflictCard] per conflict plus a bottom
@@ -78,15 +79,13 @@ class ConflictReviewBody extends StatelessWidget {
 
   Future<void> _confirm(BuildContext context) async {
     final cubit = context.read<ConflictReviewCubit>();
-    final navigator = Navigator.of(context);
-    final updated = await cubit.confirmAndResubmit();
-    if (navigator.mounted) navigator.pop(updated);
+    final navigator = context.navigator;
+    navigator.popIfMounted(await cubit.confirmAndResubmit());
   }
 
   Future<void> _cancel(BuildContext context) async {
     final cubit = context.read<ConflictReviewCubit>();
-    final navigator = Navigator.of(context);
-    final updated = await cubit.cancel();
-    if (navigator.mounted) navigator.pop(updated);
+    final navigator = context.navigator;
+    navigator.popIfMounted(await cubit.cancel());
   }
 }

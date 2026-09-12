@@ -111,6 +111,29 @@ class SqfliteCountSessionLocalDataSource implements CountSessionLocalDataSource 
   }
 
   @override
+  Future<CountSessionModel> markPendingRetry(
+    String sessionId,
+    String reason,
+  ) async {
+    try {
+      final db = await _appDatabase.database;
+      await db.update(
+        DbTables.countSessions,
+        {
+          'status': CountSessionStatus.pendingSync.toDbValue(),
+          'last_error': reason,
+          'updated_at': DateTime.now().toIso8601String(),
+        },
+        where: 'local_id = ?',
+        whereArgs: [sessionId],
+      );
+      return _getByIdOrThrow(db, sessionId);
+    } catch (_) {
+      throw const LocalStorageException('Could not queue the session.');
+    }
+  }
+
+  @override
   Future<CountSessionModel> markConflict(
     String sessionId,
     List<ProductConflictModel> conflicts,
@@ -155,6 +178,22 @@ class SqfliteCountSessionLocalDataSource implements CountSessionLocalDataSource 
       return rows.map(CountSessionModel.fromDbRow).toList();
     } catch (_) {
       throw const LocalStorageException('Could not read pending sessions.');
+    }
+  }
+
+  @override
+  Future<List<CountSessionModel>> getSessionsForStore(int storeId) async {
+    try {
+      final db = await _appDatabase.database;
+      final rows = await db.query(
+        DbTables.countSessions,
+        where: 'store_id = ?',
+        whereArgs: [storeId],
+        orderBy: 'created_at DESC',
+      );
+      return rows.map(CountSessionModel.fromDbRow).toList();
+    } catch (_) {
+      throw const LocalStorageException('Could not read the sessions.');
     }
   }
 

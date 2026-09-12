@@ -57,13 +57,14 @@ class ProductModel {
     }
   }
 
-  /// Builds the row-level view model straight from a query result that
-  /// joins `products` with `count_items` and aliases the counted quantity
-  /// column as `counted_quantity`.
+  /// Builds the row-level view model from a query result that joins
+  /// `products` with `count_items` (aliased `counted_quantity`) and
+  /// `sync_conflicts` (aliased `has_conflict`).
   static ProductListEntry entryFromRow(Map<String, Object?> row) {
     return ProductListEntry(
       product: ProductModel.fromDbRow(row).toEntity(),
       countedQuantity: row['counted_quantity'] as int?,
+      hasConflict: (row['has_conflict'] as int? ?? 0) == 1,
     );
   }
 

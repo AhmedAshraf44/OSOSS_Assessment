@@ -56,6 +56,33 @@ class AppTheme {
           ),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: AppColors.textPrimary,
+          side: const BorderSide(color: AppColors.border),
+          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+        ),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: AppColors.surfaceAlt,
+        selectedColor: AppColors.accent,
+        labelStyle: const TextStyle(
+          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w600,
+        ),
+        secondaryLabelStyle: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20.r),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+      ),
       dividerTheme: const DividerThemeData(
         color: AppColors.border,
         thickness: 1,

@@ -5,56 +5,55 @@ import 'package:inventory_count_app/features/inventory_count/domain/entities/cou
 import 'package:inventory_count_app/features/inventory_count/domain/entities/product_conflict.dart';
 
 abstract interface class CountSessionRepository {
-  /// Returns the store's current draft session, creating one if none
-  /// exists. Only one active session per store is required for this
-  /// assessment, so this is the single entry point for starting/resuming a
-  /// count.
+  /// The store's current draft session, creating one if none exists — the
+  /// single entry point for starting or resuming a count.
   Future<ApiResult<CountSession>> getOrCreateActiveSession(int storeId);
 
-  /// Persists [status] for the session and returns the updated session.
-  /// Callers decide the next status (typically via
-  /// [CountSessionStateMachine]) — this just writes it.
+  /// Writes [status] as given; the caller decides it, normally through
+  /// `CountSessionStateMachine`.
   Future<ApiResult<CountSession>> updateStatus(
     String sessionId,
     CountSessionStatus status,
   );
 
-  /// Marks the session synced with the server-assigned id.
   Future<ApiResult<CountSession>> markSynced(String sessionId, int serverId);
 
-  /// Marks the session failed, recording [errorMessage] and incrementing
-  /// its attempt count.
+  /// Records [errorMessage] and increments the session's attempt count.
   Future<ApiResult<CountSession>> markFailed(
     String sessionId,
     String errorMessage,
   );
 
-  /// Marks the session conflicted and persists the raw conflicts so a
-  /// later review screen can read them back.
+  /// Requeues the session because the request never reached the server.
+  /// Deliberately does NOT increment the attempt count — nothing was
+  /// attempted — so counting offline all day cannot burn the retry budget.
+  Future<ApiResult<CountSession>> markPendingRetry(
+    String sessionId,
+    String reason,
+  );
+
+  /// Marks the session conflicted and persists [conflicts] for review.
   Future<ApiResult<CountSession>> markConflict(
     String sessionId,
     List<ProductConflict> conflicts,
   );
 
-  /// Sessions currently in [CountSessionStatus.pendingSync] across every
-  /// store — what the sync engine processes on each run.
+  /// Pending sessions across every store — what the sync engine processes.
   Future<ApiResult<List<CountSession>>> getSessionsPendingSync();
 
-  /// Crash recovery: any session still marked [CountSessionStatus.syncing]
-  /// at app start means the app died mid-request. Resets those back to
-  /// [CountSessionStatus.pendingSync] — safe because retries are
-  /// idempotent — instead of leaving them stuck or marking them failed.
+  /// Every session recorded for [storeId], newest first.
+  Future<ApiResult<List<CountSession>>> getSessionsForStore(int storeId);
+
+  /// Crash recovery: a session still marked syncing at app start means the
+  /// app died mid-request. Resets those to pending — safe because retries
+  /// are idempotent — instead of leaving them stuck or marking them failed.
   Future<ApiResult<void>> recoverInterruptedSyncs();
 
-  /// The conflicts currently stored for [sessionId] (populated by
-  /// [markConflict]).
   Future<ApiResult<List<ProductConflict>>> getConflicts(String sessionId);
 
-  /// Applies the employee's per-product [resolutions] to the session's
-  /// counted items (updating each item's counted quantity and snapshotting
-  /// the server's current version as the new expected version) and clears
-  /// the stored conflicts. Does NOT change the session's status — the
-  /// caller (SyncEngine) drives that through the state machine.
+  /// Applies the employee's per-product [resolutions] to the counted items
+  /// and clears the stored conflicts. Does NOT change the session's status
+  /// — the caller drives that through the state machine.
   Future<ApiResult<void>> applyConflictResolutions(
     String sessionId,
     Map<int, ConflictResolution> resolutions,

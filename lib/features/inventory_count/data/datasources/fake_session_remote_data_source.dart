@@ -11,21 +11,27 @@ class FakeSessionRemoteDataSource implements SessionRemoteDataSource {
   @override
   Future<SubmitResponseModel> submitCount({
     required String idempotencyKey,
+    required String clientSessionId,
     required int storeId,
+    required DateTime createdAt,
     required List<CountedItem> items,
   }) async {
     final json = await _backend.submitCount(
       idempotencyKey: idempotencyKey,
-      storeId: storeId,
-      items: items
-          .map(
-            (item) => {
-              'productId': item.productId,
-              'countedQuantity': item.countedQuantity,
-              'expectedVersion': item.expectedVersion,
-            },
-          )
-          .toList(),
+      request: {
+        'clientSessionId': clientSessionId,
+        'storeId': storeId,
+        'createdAt': createdAt.toUtc().toIso8601String(),
+        'items': items
+            .map(
+              (item) => {
+                'productId': item.productId,
+                'countedQuantity': item.countedQuantity,
+                'expectedVersion': item.expectedVersion,
+              },
+            )
+            .toList(),
+      },
     );
     return SubmitResponseModel.fromJson(json);
   }

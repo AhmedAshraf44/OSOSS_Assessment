@@ -49,4 +49,12 @@ abstract interface class ProductLocalDataSource {
     required int storeId,
     required List<int> productIds,
   });
+
+  /// How many products are cached for [storeId] — the denominator of every
+  /// session's progress.
+  Future<int> getProductCount(int storeId);
+
+  /// sessionId -> number of products counted in it, for all sessions at
+  /// once (one query instead of one per session).
+  Future<Map<String, int>> getCountedTotalsBySession(List<String> sessionIds);
 }

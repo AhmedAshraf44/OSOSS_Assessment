@@ -4,6 +4,7 @@ import 'package:inventory_count_app/core/result/api_result.dart';
 import 'package:inventory_count_app/features/inventory_count/data/datasources/product_local_data_source.dart';
 import 'package:inventory_count_app/features/inventory_count/data/datasources/product_remote_data_source.dart';
 import 'package:inventory_count_app/features/inventory_count/data/models/product_model.dart';
+import 'package:inventory_count_app/features/inventory_count/data/repositories/product_catalog_synchronizer.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_progress.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/counted_item.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/product.dart';
@@ -12,29 +13,21 @@ import 'package:inventory_count_app/features/inventory_count/domain/entities/pro
 import 'package:inventory_count_app/features/inventory_count/domain/repositories/product_repository.dart';
 
 class ProductRepositoryImpl implements ProductRepository {
-  const ProductRepositoryImpl({
+  ProductRepositoryImpl({
     required ProductRemoteDataSource remoteDataSource,
     required ProductLocalDataSource localDataSource,
-  }) : _remoteDataSource = remoteDataSource,
-       _localDataSource = localDataSource;
+  }) : _localDataSource = localDataSource,
+       _catalogSynchronizer = ProductCatalogSynchronizer(
+         remoteDataSource: remoteDataSource,
+         localDataSource: localDataSource,
+       );
 
-  final ProductRemoteDataSource _remoteDataSource;
   final ProductLocalDataSource _localDataSource;
+  final ProductCatalogSynchronizer _catalogSynchronizer;
 
   @override
   Future<ApiResult<void>> syncProductsFromServer(int storeId) {
-    return guardApiCall(() async {
-      var page = 1;
-      while (true) {
-        final response = await _remoteDataSource.getProducts(
-          storeId: storeId,
-          page: page,
-        );
-        await _localDataSource.upsertProducts(storeId, response.data);
-        if (page >= response.totalPages) break;
-        page++;
-      }
-    });
+    return guardApiCall(() => _catalogSynchronizer.syncStore(storeId));
   }
 
   @override
@@ -47,7 +40,7 @@ class ProductRepositoryImpl implements ProductRepository {
     ProductCountFilter filter = ProductCountFilter.all,
   }) {
     return guardApiCall(() async {
-      // Fetch one extra row to detect whether another page exists without a
+      // One extra row detects whether another page exists without a
       // separate COUNT(*) round trip.
       final rows = await _localDataSource.queryPage(
         storeId: storeId,
@@ -57,10 +50,12 @@ class ProductRepositoryImpl implements ProductRepository {
         searchQuery: searchQuery,
         filter: filter,
       );
+
       final hasMore = rows.length > limit;
-      final pageRows = hasMore ? rows.sublist(0, limit) : rows;
       return ProductListPage(
-        entries: pageRows.map(ProductModel.entryFromRow).toList(),
+        entries: (hasMore ? rows.sublist(0, limit) : rows)
+            .map(ProductModel.entryFromRow)
+            .toList(),
         hasMore: hasMore,
       );
     });
@@ -75,11 +70,10 @@ class ProductRepositoryImpl implements ProductRepository {
   }) {
     return guardApiCall(() async {
       if (countedQuantity == null) {
-        await _localDataSource.clearCountedQuantity(
+        return _localDataSource.clearCountedQuantity(
           sessionId: sessionId,
           productId: productId,
         );
-        return;
       }
 
       final currentVersion = await _localDataSource.getProductVersion(
@@ -120,15 +114,27 @@ class ProductRepositoryImpl implements ProductRepository {
   Future<ApiResult<List<CountedItem>>> getCountedItems(String sessionId) {
     return guardApiCall(() async {
       final rows = await _localDataSource.getCountedItemRows(sessionId);
-      return rows
-          .map(
-            (row) => CountedItem(
-              productId: row['product_id']! as int,
-              countedQuantity: row['counted_quantity']! as int,
-              expectedVersion: row['expected_version']! as int,
-            ),
-          )
-          .toList();
+      return rows.map(_countedItemFromRow).toList();
+    });
+  }
+
+  @override
+  Future<ApiResult<Map<String, CountProgress>>> getProgressForSessions({
+    required int storeId,
+    required List<String> sessionIds,
+  }) {
+    return guardApiCall(() async {
+      final total = await _localDataSource.getProductCount(storeId);
+      final countedBySession = await _localDataSource
+          .getCountedTotalsBySession(sessionIds);
+
+      return {
+        for (final sessionId in sessionIds)
+          sessionId: CountProgress(
+            counted: countedBySession[sessionId] ?? 0,
+            total: total,
+          ),
+      };
     });
   }
 
@@ -144,5 +150,13 @@ class ProductRepositoryImpl implements ProductRepository {
       );
       return rows.map((row) => ProductModel.fromDbRow(row).toEntity()).toList();
     });
+  }
+
+  CountedItem _countedItemFromRow(Map<String, Object?> row) {
+    return CountedItem(
+      productId: row['product_id']! as int,
+      countedQuantity: row['counted_quantity']! as int,
+      expectedVersion: row['expected_version']! as int,
+    );
   }
 }

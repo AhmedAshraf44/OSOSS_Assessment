@@ -15,8 +15,15 @@ enum CountSessionEvent {
   /// The server reported a version conflict.
   syncConflict,
 
-  /// The request failed (network, timeout, server error, ...).
+  /// The request failed (timeout, server error, malformed response, ...) —
+  /// it actually went out and came back wrong.
   syncFail,
+
+  /// The request never left the device (no connectivity), so the session
+  /// goes back to the pending queue rather than being marked failed: there
+  /// is nothing for the employee to "retry", it just waits for a
+  /// connection.
+  defer,
 
   /// Employee (or the engine, for a transient failure) retries a failed
   /// session.
@@ -46,6 +53,7 @@ class CountSessionStateMachine {
       CountSessionEvent.syncSucceed,
       CountSessionEvent.syncConflict,
       CountSessionEvent.syncFail,
+      CountSessionEvent.defer,
     },
     CountSessionStatus.conflict: {
       CountSessionEvent.resolve,
@@ -73,6 +81,7 @@ class CountSessionStateMachine {
       CountSessionEvent.syncSucceed => CountSessionStatus.synced,
       CountSessionEvent.syncConflict => CountSessionStatus.conflict,
       CountSessionEvent.syncFail => CountSessionStatus.failed,
+      CountSessionEvent.defer => CountSessionStatus.pendingSync,
       CountSessionEvent.retry => CountSessionStatus.pendingSync,
       CountSessionEvent.resolve => CountSessionStatus.pendingSync,
       CountSessionEvent.cancel => CountSessionStatus.draft,

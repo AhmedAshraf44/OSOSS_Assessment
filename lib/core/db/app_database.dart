@@ -44,7 +44,7 @@ class AppDatabase {
       return await openDatabase(
         path,
         version: schemaVersion,
-        onCreate: (db, version) => _createSchema(db),
+        onCreate: (db, version) => createSchema(db),
         onConfigure: (db) => db.execute('PRAGMA foreign_keys = ON'),
       );
     } catch (_) {
@@ -52,7 +52,10 @@ class AppDatabase {
     }
   }
 
-  Future<void> _createSchema(Database db) async {
+  /// Creates every table and index. Public and static so tests can build a
+  /// schema-complete in-memory database (e.g. via sqflite_common_ffi)
+  /// without going through [_open]'s real-filesystem path.
+  static Future<void> createSchema(Database db) async {
     final batch = db.batch();
 
     batch.execute('''

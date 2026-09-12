@@ -22,47 +22,82 @@ class ProgressHeader extends StatelessWidget {
     final ratio = progress.total == 0
         ? 0.0
         : progress.counted / progress.total;
+    final percent = (ratio * 100).round();
 
     return Container(
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 8.w, 12.h),
-      decoration: const BoxDecoration(
+      margin: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 4.h),
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
         color: AppColors.surface,
-        border: Border(bottom: BorderSide(color: AppColors.border)),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          SizedBox(
+            width: 48.w,
+            height: 48.w,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Text(
-                  '${progress.counted} of ${progress.total} counted',
-                  style: context.textTheme.bodyMedium,
+                CircularProgressIndicator(
+                  value: ratio,
+                  strokeWidth: 5,
+                  backgroundColor: AppColors.surfaceAlt,
+                  valueColor: const AlwaysStoppedAnimation(AppColors.accent),
                 ),
-                SizedBox(height: 6.h),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4.r),
-                  child: LinearProgressIndicator(
-                    value: ratio,
-                    minHeight: 6.h,
-                    backgroundColor: AppColors.surfaceAlt,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+                Text(
+                  '$percent%',
+                  style: TextStyle(
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
                 ),
               ],
             ),
           ),
-          SizedBox(width: 8.w),
-          IconButton(
-            tooltip: 'Refresh from server',
-            onPressed: isSyncing ? null : onRefresh,
-            icon: isSyncing
-                ? SizedBox(
-                    width: 20.w,
-                    height: 20.w,
-                    child: const CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.refresh),
+          SizedBox(width: 14.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Count progress',
+                  style: context.textTheme.bodySmall?.copyWith(
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                SizedBox(height: 2.h),
+                Text(
+                  '${progress.counted} of ${progress.total} products',
+                  style: context.textTheme.titleMedium,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(
+            width: 40.w,
+            height: 40.w,
+            child: IconButton(
+              tooltip: 'Refresh from server',
+              padding: EdgeInsets.zero,
+              onPressed: isSyncing ? null : onRefresh,
+              icon: isSyncing
+                  ? SizedBox(
+                      width: 18.w,
+                      height: 18.w,
+                      child: const CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.refresh_rounded),
+            ),
           ),
         ],
       ),

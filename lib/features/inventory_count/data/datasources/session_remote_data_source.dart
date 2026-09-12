@@ -5,9 +5,13 @@ import 'package:inventory_count_app/features/inventory_count/domain/entities/cou
 /// [UnauthorizedException], [ServerException], or
 /// [MalformedResponseException] on failure.
 abstract interface class SessionRemoteDataSource {
+  /// `POST /inventory-counts` with an `Idempotency-Key` header and a body
+  /// of `{clientSessionId, storeId, createdAt, items}`.
   Future<SubmitResponseModel> submitCount({
     required String idempotencyKey,
+    required String clientSessionId,
     required int storeId,
+    required DateTime createdAt,
     required List<CountedItem> items,
   });
 }

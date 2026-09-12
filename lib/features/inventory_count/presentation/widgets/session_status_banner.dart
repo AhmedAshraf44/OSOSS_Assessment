@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import 'package:inventory_count_app/core/extensions/build_context_x.dart';
-import 'package:inventory_count_app/core/theme/app_colors.dart';
 import 'package:inventory_count_app/features/inventory_count/domain/entities/count_session_status.dart';
+import 'package:inventory_count_app/features/inventory_count/presentation/models/session_banner_config.dart';
 
-/// Shows the count session's current sync status. Draft (nothing submitted
-/// yet) renders nothing — there's nothing to report until the employee
-/// submits.
+/// Shows the count session's current sync status, plus the one action it
+/// allows: retry a failed sync, or review conflicts.
 class SessionStatusBanner extends StatelessWidget {
   const SessionStatusBanner({
     super.key,
@@ -26,7 +25,11 @@ class SessionStatusBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final config = _configFor(status);
+    final config = SessionBannerConfig.forStatus(
+      status,
+      attemptCount: attemptCount,
+      lastError: lastError,
+    );
     if (config == null) return const SizedBox.shrink();
 
     return Container(
@@ -35,17 +38,7 @@ class SessionStatusBanner extends StatelessWidget {
       color: config.color.withValues(alpha: 0.12),
       child: Row(
         children: [
-          if (config.showSpinner)
-            SizedBox(
-              width: 16.w,
-              height: 16.w,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation(config.color),
-              ),
-            )
-          else
-            Icon(config.icon, size: 18.sp, color: config.color),
+          _Leading(config: config),
           SizedBox(width: 10.w),
           Expanded(
             child: Text(
@@ -64,57 +57,26 @@ class SessionStatusBanner extends StatelessWidget {
       ),
     );
   }
-
-  _BannerConfig? _configFor(CountSessionStatus status) {
-    return switch (status) {
-      CountSessionStatus.draft => null,
-      CountSessionStatus.readyToSubmit => _BannerConfig(
-        color: AppColors.pending,
-        icon: Icons.hourglass_top,
-        message: 'Ready to submit',
-      ),
-      CountSessionStatus.pendingSync => _BannerConfig(
-        color: AppColors.pending,
-        icon: Icons.cloud_upload_outlined,
-        message: 'Pending synchronization — will sync automatically.',
-      ),
-      CountSessionStatus.syncing => _BannerConfig(
-        color: AppColors.pending,
-        icon: Icons.sync,
-        message: 'Synchronizing…',
-        showSpinner: true,
-      ),
-      CountSessionStatus.synced => _BannerConfig(
-        color: AppColors.success,
-        icon: Icons.check_circle_outline,
-        message: 'Synchronized with the server.',
-      ),
-      CountSessionStatus.conflict => const _BannerConfig(
-        color: AppColors.danger,
-        icon: Icons.warning_amber_outlined,
-        message: 'Version conflicts need your review before this can sync.',
-      ),
-      CountSessionStatus.failed => _BannerConfig(
-        color: AppColors.danger,
-        icon: Icons.error_outline,
-        message: attemptCount > 0
-            ? 'Sync failed (attempt $attemptCount)${lastError != null ? ': $lastError' : '.'}'
-            : (lastError ?? 'Sync failed.'),
-      ),
-    };
-  }
 }
 
-class _BannerConfig {
-  const _BannerConfig({
-    required this.color,
-    required this.icon,
-    required this.message,
-    this.showSpinner = false,
-  });
+class _Leading extends StatelessWidget {
+  const _Leading({required this.config});
 
-  final Color color;
-  final IconData icon;
-  final String message;
-  final bool showSpinner;
+  final SessionBannerConfig config;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!config.showSpinner) {
+      return Icon(config.icon, size: 18.sp, color: config.color);
+    }
+
+    return SizedBox(
+      width: 16.w,
+      height: 16.w,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        valueColor: AlwaysStoppedAnimation(config.color),
+      ),
+    );
+  }
 }

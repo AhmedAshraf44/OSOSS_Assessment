@@ -20,6 +20,6 @@ void main() {
     await tester.pumpWidget(const InventoryCountApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Select Store'), findsOneWidget);
+    expect(find.text('Inventory Count'), findsOneWidget);
   });
 }

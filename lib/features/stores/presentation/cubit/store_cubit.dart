@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'package:inventory_count_app/features/inventory_count/domain/usecases/has_unsubmitted_count.dart';
 import 'package:inventory_count_app/features/stores/domain/usecases/get_selected_store_id.dart';
 import 'package:inventory_count_app/features/stores/domain/usecases/get_stores.dart';
 import 'package:inventory_count_app/features/stores/domain/usecases/select_store.dart';
@@ -10,14 +11,17 @@ class StoreCubit extends Cubit<StoreState> {
     required GetStores getStores,
     required GetSelectedStoreId getSelectedStoreId,
     required SelectStore selectStore,
+    required HasUnsubmittedCount hasUnsubmittedCount,
   }) : _getStores = getStores,
        _getSelectedStoreId = getSelectedStoreId,
        _selectStore = selectStore,
+       _hasUnsubmittedCount = hasUnsubmittedCount,
        super(const StoreInitial());
 
   final GetStores _getStores;
   final GetSelectedStoreId _getSelectedStoreId;
   final SelectStore _selectStore;
+  final HasUnsubmittedCount _hasUnsubmittedCount;
 
   Future<void> loadStores() async {
     emit(const StoreLoading());
@@ -37,15 +41,27 @@ class StoreCubit extends Cubit<StoreState> {
     );
   }
 
+  /// Whether picking [storeId] would walk away from a count on the
+  /// currently selected store that has not reached the server yet.
+  ///
+  /// The caller confirms with the employee before calling [selectStore].
+  /// Switching never discards anything — each store's session and counted
+  /// quantities stay on the device, scoped to that store — but leaving
+  /// silently would hide unsynced work.
+  Future<bool> isLeavingUnsubmittedCount(int storeId) async {
+    final current = state;
+    if (current is! StoreLoaded) return false;
+
+    final selectedStoreId = current.selectedStoreId;
+    if (selectedStoreId == null || selectedStoreId == storeId) return false;
+
+    return _hasUnsubmittedCount(selectedStoreId);
+  }
+
   Future<void> selectStore(int storeId) async {
     final current = state;
     if (current is! StoreLoaded) return;
 
-    // TODO: once the inventory_count feature exists, confirm with the
-    // employee before switching stores while a draft session for the
-    // current store is active, instead of switching silently
-    // (Functional Requirement 1: "Handle changing stores while an
-    // inventory-count session is active").
     final result = await _selectStore(storeId);
     result.when(
       onSuccess: (_) => emit(current.copyWith(selectedStoreId: storeId)),
