@@ -10,6 +10,19 @@ offline, submits, and reviews any version conflict before it syncs.
 - **Demo recording** — [watch](https://drive.google.com/file/d/1SZNkmLmFySOw6u77THOOG6RGRstAmemu/view?usp=drive_link)
 - **Design decisions** — [ADR 0001: offline sync & idempotency](docs/adr/0001-offline-sync-and-idempotency.md)
 
+## Run
+
+```bash
+flutter pub get
+flutter run        # no API key or backend URL needed — the backend is simulated
+flutter test       # 67 tests
+flutter analyze
+```
+
+Flutter 3.44.9 · Dart 3.12.2. On Windows, if the first build fails with
+`RelocatableFileToPathConverter`, put `PUB_CACHE` on the same drive as the
+project, then `flutter clean && flutter pub get`.
+
 ## Screens
 
 | Store selection | Product list | Counting |
